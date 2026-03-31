@@ -41,7 +41,7 @@
         }
 
         /* Modal Styles */
-        #modal-overlay {
+        .modal {
             display: none;
             position: fixed;
             top: 0;
@@ -51,7 +51,7 @@
             background: rgba(0, 0, 0, 0.5);
             z-index: 2000;
         }
-        #modal-content {
+        .modal-content {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -63,11 +63,15 @@
             text-align: center;
             width: 250px;
         }
-        #modal-content input {
+        .modal-content input {
             width: 80%;
             padding: 8px;
             margin: 10px 0;
             font-size: 16px;
+        }
+
+        #csvInput {
+            width: 230px;
         }
         
         /* Button Styles */
@@ -82,15 +86,19 @@
         }
         .btn-submit { background: #4CAF50; color: white; }
         .btn-cancel { background: #f44336; color: white; }
-        .btn-export { 
-            background: #2196F3; 
+        .btn-map { 
             color: white; 
             padding: 12px 20px; 
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
+        .btn-export { 
+            background: #2196F3; 
+        }
         .btn-export:hover { background: #0b7dda; }
         .btn-image { background: #9C27B0; }
         .btn-image:hover { background: #7B1FA2; }
+        .btn-load { background: #27b050; }
+        .btn-load:hover { background: #1fa246; }
 		
 		/* legend */
 		.legend-container {
@@ -124,7 +132,7 @@
 		        }
 
 		        /* The 4 requested colors */
-		        .bg-lightblue { background-color: #add8e6; }
+		        .bg-lightblue { background-color: #adb2e6; }
 		        .bg-yellow { background-color: #ffd700; } /* Using a slightly darker gold/yellow for better text contrast if needed */
 		        .bg-orange { background-color: #ffa500; }
 		        .bg-red { background-color: #ff4c4c; }
@@ -157,14 +165,16 @@
 	 </div>
     
 	<div class="export-container">
-        <button class="btn btn-export" onclick="exportCSV()">Exportar datos</button>
-        <button class="btn btn-export btn-image" onclick="exportJPEG()">Guardar Imagen</button>
+        <button class="btn btn-map btn-export" onclick="exportCSV()">Exportar datos</button>
+        <button class="btn btn-map btn-load" onclick="openCSVModal()">Cargar Datos</button>
+        <button class="btn btn-map btn-image" onclick="exportJPEG()">Guardar Imagen</button>
+        
     </div>
 
     <div id="map"></div>
 
-    <div id="modal-overlay">
-        <div id="modal-content">
+    <div id="modal-enter-data" class="modal">
+        <div class="modal-content">
             <h4>Añadir Valor al mapa</h4>
 			<label for="heatValue">Registro:</label>
 			<select id="heatValue" name="tipoHallazgo">
@@ -177,6 +187,16 @@
 			<br>
             <button class="btn btn-submit" onclick="submitPoint()">Añadir</button>
             <button class="btn btn-cancel" onclick="closeModal()">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="csvModal" class="modal">
+        <div class="modal-content">
+            <h3>Cargar datos en CSV</h3>
+            <p>Formato: <code>latitud,longitud,valor</code> (p.ej. 42.046842,-8.643129,4.00)</p>
+            <textarea id="csvInput" rows="8" placeholder="lat,lon,0.00"></textarea>
+            <button class="btn btn-submit" onclick="loadCSV()">Cargar</button>
+            <button class="btn btn-cancel" onclick="closeCSVModal()">Cancelar</button>
         </div>
     </div>
 
@@ -219,8 +239,10 @@
         // --- INTERACTIVE LOGIC ---
 
         let clickedLatLng = null; 
-        const modal = document.getElementById('modal-overlay');
+        const modal = document.getElementById('modal-enter-data');
         const inputField = document.getElementById('heatValue');
+        const csvModal = document.getElementById("csvModal");
+        const csvInput = document.getElementById("csvInput");
 
         // Listen for double clicks
         map.on('dblclick', function(e) {
@@ -229,6 +251,8 @@
             inputField.value = ''; 
             inputField.focus(); 
         });
+
+        
 
         // Submit new point
         function submitPoint() {
@@ -254,6 +278,45 @@
             modal.style.display = 'none';
             clickedLatLng = null; 
         }
+
+        function openCSVModal() {
+            csvModal.style.display = 'block';
+        }
+
+        function closeCSVModal() {
+            csvModal.style.display = 'none';
+        }
+
+        function loadCSV() {
+            const rawText = csvInput.value;
+            // Split the text into an array of lines
+            const lines = rawText.split('\n');
+            lines.forEach((line, index) => {
+                // Remove whitespace and ignore empty lines
+                const cleanLine = line.trim();
+                if (cleanLine === '') return; 
+                const parts = cleanLine.split(',');
+
+                // Validate that we have exactly 3 parts
+                if (parts.length === 3) {
+                    const lat = parseFloat(parts[0].trim());
+                    const long = parseFloat(parts[1].trim());
+                    const val = parseFloat(parts[2].trim());
+                    if (lat && long && val) {
+                        heat.addLatLng([lat, long, val]);
+                    } else {
+                        console.warn(`Line ${index + 1} is invalid and was skipped: "${line}"`);
+                    }
+                } else {
+                    console.warn(`Line ${index + 1} is invalid and was skipped: "${line}"`);
+                }
+            });
+
+            // Close the modal after parsing
+            csvModal.style.display = "none";
+            //heat.addLatLng([clickedLatLng.lat, clickedLatLng.lng, val]);
+        }
+		
 
         // --- EXPORT TO CSV LOGIC ---
 
@@ -283,7 +346,8 @@
             link.click();
             document.body.removeChild(link);
         }
-		
+
+        
 // --- EXPORT TO JPEG LOGIC ---
 
         function exportJPEG() {
